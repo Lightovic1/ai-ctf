@@ -1,3 +1,4 @@
-Flask
+Flask>=2.2
 Flask-Session
-openai
+openai>=1.0.0
+flask-limiter>=3.5.0
