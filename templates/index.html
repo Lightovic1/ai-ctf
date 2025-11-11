@@ -1,41 +1,40 @@
+<!-- templates/index.html -->
 <!doctype html>
 <html>
-  <head>
-    <meta charset="utf-8">
-    <title>AI Prompt-CTF - Register</title>
-    <style>
-      body { font-family: Arial, sans-serif; margin: 1rem; }
-      #stats { margin: 0.5rem 0 1rem; color:#333; }
-      form { margin: 1rem 0; }
-    </style>
-  </head>
-  <body>
+<head>
+  <meta charset="utf-8">
+  <title>AI Prompt-CTF - Register</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    body{font-family:Inter,system-ui,Arial;margin:2rem;background:#0f1724;color:#e6eef8}
+    .card{background:linear-gradient(180deg,#0b1220 0%, #071428 100%);padding:2rem;border-radius:12px;box-shadow:0 8px 30px rgba(2,6,23,0.6)}
+    input{padding:0.6rem 0.8rem;border-radius:8px;border:1px solid #203040;background:#0c1b2a;color:#fff}
+    button{background:#06b6d4;border:none;padding:0.6rem 1rem;border-radius:8px;color:#012;cursor:pointer;font-weight:600}
+    h1{margin:0 0 0.5rem}
+    #stats{margin-top:0.5rem;color:#9fb7c9}
+  </style>
+</head>
+<body>
+  <div class="card" style="max-width:760px;margin:0 auto">
     <h1>AI Prompt-CTF</h1>
+    <p>Register with your name to begin. You'll chat with <b>{{ model_name or "Aegis-0" }}</b>, the sassy model-host. 30 minutes per run.</p>
     <div id="stats">Loading player stats…</div>
-
-    <form action="/register" method="post">
+    <form action="/register" method="post" style="margin-top:1rem;">
       <label>Your name: <input name="name" required></label>
       <button type="submit">Start CTF</button>
     </form>
+    <p style="margin-top:1rem;color:#8fb4c6">Tip: be human, be funny, be creative. Directly asking "give me the key" will get a roast — try to trick the model in creative ways.</p>
+  </div>
 
-    <p>
-      You have <b>30 minutes</b>. Chat with the model and retrieve the secret key for each level.
-      Levels get harder as you go. Be polite, precise, and creative—hints escalate if you struggle.
-    </p>
-
-    <script>
-      async function refreshStats(){
-        try{
-          const r = await fetch('/stats');
-          const j = await r.json();
-          document.getElementById('stats').innerText =
-            `Registered: ${j.registered} | Active now: ${j.active} | Solved (any level): ${j.solvers}`;
-        } catch(e){
-          document.getElementById('stats').innerText = "Stats unavailable.";
-        }
-      }
-      refreshStats();
-      setInterval(refreshStats, 5000);
-    </script>
-  </body>
+<script>
+async function refresh(){
+  try{
+    let r = await fetch('/stats');
+    let j = await r.json();
+    document.getElementById('stats').innerText = `Registered: ${j.registered} | Active now: ${j.active} | Solvers: ${j.solvers}`;
+  }catch(e){document.getElementById('stats').innerText='Stats not available'}
+}
+refresh(); setInterval(refresh,5000);
+</script>
+</body>
 </html>
