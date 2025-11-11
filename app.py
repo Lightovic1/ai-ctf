@@ -1,10 +1,8 @@
-# app.py — ready-to-drop version with OpenAI replies + Flask-Limiter
+# app.py — top section (fixed for Render sessions + OpenAI + Limiter)
 import os, time, random, sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import Flask, render_template, request, session, redirect, url_for, jsonify
 from flask_session import Session
-
-# Rate limiting
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
@@ -26,15 +24,33 @@ APP_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH  = os.path.join(APP_DIR, "ctf.db")
 
 app = Flask(__name__)
+
+# IMPORTANT: use a stable secret in production (set via env on Render)
 app.secret_key = os.getenv("SECRET_KEY", os.urandom(24).hex())
-app.config["SESSION_TYPE"] = "filesystem"
+
+# ---- Robust session settings for Render/HTTPS ----
+app.config.update(
+    SESSION_TYPE="filesystem",
+    SESSION_FILE_DIR="/tmp/flask_session",   # writable on Render
+    SESSION_PERMANENT=True,
+    PERMANENT_SESSION_LIFETIME=timedelta(hours=1),
+    SESSION_COOKIE_NAME="ai_ctf_session",
+    SESSION_COOKIE_SECURE=True,              # HTTPS only
+    SESSION_COOKIE_SAMESITE="Lax",           # good for redirects/forms
+    SESSION_COOKIE_HTTPONLY=True,            # protect from JS access
+)
+
+# Ensure the session dir exists on boot
+os.makedirs(app.config["SESSION_FILE_DIR"], exist_ok=True)
+
+# Initialize Flask-Session
 Session(app)
 
-# Limiter (global fallback)
+# Initialize Flask-Limiter (global safety net)
 limiter = Limiter(
     key_func=get_remote_address,
     app=app,
-    default_limits=["60 per minute"],  # global safety net
+    default_limits=["60 per minute"],
 )
 
 # ---------- Game Config ----------
@@ -367,3 +383,4 @@ def st():
 if __name__ == "__main__":
     port = int(os.getenv("PORT",5000))
     app.run(debug=False, host="0.0.0.0", port=port)
+
