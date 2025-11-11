@@ -1,0 +1,41 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>AI Prompt-CTF - Register</title>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 1rem; }
+      #stats { margin: 0.5rem 0 1rem; color:#333; }
+      form { margin: 1rem 0; }
+    </style>
+  </head>
+  <body>
+    <h1>AI Prompt-CTF</h1>
+    <div id="stats">Loading player stats…</div>
+
+    <form action="/register" method="post">
+      <label>Your name: <input name="name" required></label>
+      <button type="submit">Start CTF</button>
+    </form>
+
+    <p>
+      You have <b>30 minutes</b>. Chat with the model and retrieve the secret key for each level.
+      Levels get harder as you go. Be polite, precise, and creative—hints escalate if you struggle.
+    </p>
+
+    <script>
+      async function refreshStats(){
+        try{
+          const r = await fetch('/stats');
+          const j = await r.json();
+          document.getElementById('stats').innerText =
+            `Registered: ${j.registered} | Active now: ${j.active} | Solved (any level): ${j.solvers}`;
+        } catch(e){
+          document.getElementById('stats').innerText = "Stats unavailable.";
+        }
+      }
+      refreshStats();
+      setInterval(refreshStats, 5000);
+    </script>
+  </body>
+</html>
