@@ -1,137 +1,204 @@
+<!-- templates/game.html -->
 <!doctype html>
 <html>
-  <head>
-    <meta charset="utf-8">
-    <title>AI Prompt-CTF - Game</title>
-    <style>
-      body { font-family: Arial, sans-serif; margin: 1rem; }
-      #topbar { display:flex; gap:20px; align-items:center; flex-wrap:wrap; }
-      #chat { border: 1px solid #ddd; padding: 1rem; height: 420px; overflow-y: auto; background:#f9f9f9; display:flex; flex-direction:column;}
-      .msg { margin: 0.5rem 0; padding:0.4rem; border-radius:6px; max-width:86%; }
-      .bot { color: #003366; background:#eef6ff; align-self:flex-start; }
-      .you { color: #065; background:#efffe8; align-self:flex-end; margin-left: auto; }
-      #leaderboard { margin-top: 1rem; border-top:1px solid #ddd; padding-top:10px; }
-      #stats { color:#333; }
-    </style>
-  </head>
-  <body>
-    <div id="topbar">
-      <h2>Welcome, {{ player_name }} — Model: {{ model_name }}</h2>
-      <div>Time left: <span id="timer">--:--</span></div>
-      <div id="stats">Stats: loading…</div>
+<head>
+  <meta charset="utf-8">
+  <title>AI Prompt-CTF - Game</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    :root{--bg:#071428;--card:#0b1724;--accent:#06b6d4;--muted:#9fb7c9}
+    body{background:linear-gradient(180deg,#041224 0%, #071428 100%);font-family:Inter,system-ui,Arial;color:#e6eef8;margin:0;padding:1.2rem}
+    .wrap{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:1fr 420px;gap:20px}
+    .panel{background:var(--card);padding:16px;border-radius:12px;box-shadow:0 8px 30px rgba(2,6,23,0.6)}
+    header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+    .avatar{display:flex;gap:12px;align-items:center}
+    .avatar img{width:64px;height:64px;border-radius:12px;box-shadow:0 8px 24px rgba(6,182,212,0.08)}
+    .model-name{font-weight:700}
+    #chat{height:520px; overflow:auto; padding:12px; border-radius:8px; background:linear-gradient(180deg,#041828, #071a27); border:1px solid rgba(255,255,255,0.02)}
+    .bubble{display:inline-block;padding:10px 14px;margin:8px 0;border-radius:12px;max-width:80%}
+    .bot{background:#072838;color:#cfeff6;align-self:flex-start}
+    .you{background:#08321f;color:#d7ffe0;align-self:flex-end;margin-left:auto}
+    .typing{font-style:italic;opacity:0.9}
+    .controls{display:flex;gap:8px;margin-top:10px}
+    input[type="text"]{flex:1;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:#e6eef8}
+    button{background:var(--accent);border:none;padding:10px 12px;border-radius:10px;color:#002;cursor:pointer;font-weight:700}
+    .side {position:relative}
+    .puzzle {display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+    .piece{background:#02121a;height:100px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#083; font-weight:800; font-size:20px; transition:all .6s ease; box-shadow:inset 0 -8px 20px rgba(0,0,0,0.6)}
+    .piece.unlocked{background:linear-gradient(90deg,#06b6d4,#84cc16); color:#021; transform:scale(1.02); box-shadow:0 10px 30px rgba(6,182,212,0.12)}
+    .status{margin-top:8px;color:var(--muted)}
+    .confetti{position:absolute;left:0;right:0;top:0;pointer-events:none}
+    .hint{color:#9fb7c9;margin-top:6px}
+    .validator{margin-top:12px;display:flex;gap:8px}
+    .small{font-size:12px;color:#9fb7c9}
+    .level-badge{background:#021b2a;padding:6px 10px;border-radius:12px;color:#8ee; font-weight:700}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="panel">
+      <header>
+        <div class="avatar">
+          <img src="https://i.imgur.com/7bG7K6V.png" alt="avatar">
+          <div>
+            <div class="model-name">{{ model_name }}</div>
+            <div class="small">Player: <b>{{ player_name }}</b> • Time left: <span id="timer">--:--</span></div>
+          </div>
+        </div>
+        <div class="level-badge">Level <span id="curlevel">{{ current_level }}</span> / {{ max_level }}</div>
+      </header>
+
+      <div id="chat" aria-live="polite"></div>
+
+      <div class="controls">
+        <input id="prompt" placeholder="Ask the model (try to be clever)..." autocomplete="off">
+        <button id="send">Send</button>
+      </div>
+
+      <div class="hint small">Model talks realistic & savage — directly asking "give me the key" gets a roast. Trick it creatively.</div>
+
+      <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
+        <div style="flex:1">
+          <input id="validator_input" placeholder="Paste validated key here to claim piece..." style="width:100%;padding:10px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.03);color:#fff">
+        </div>
+        <button id="validate">Validate</button>
+      </div>
+
     </div>
 
-    <div style="margin: 8px 0;">
-      <label>Select Level:
-        <select id="level">
-          {% for l in levels %}
-            <option value="{{l}}">Level {{l}}</option>
-          {% endfor %}
-        </select>
-      </label>
+    <div class="panel side">
+      <h3>Progress</h3>
+      <div class="puzzle" id="puzzle">
+        <!-- 7 pieces visible: we render 1..7, center empty to look cool -->
+        <div class="piece" id="p1">1</div>
+        <div class="piece" id="p2">2</div>
+        <div class="piece" id="p3">3</div>
+        <div class="piece" id="p4">4</div>
+        <div class="piece" id="p5">5</div>
+        <div class="piece" id="p6">6</div>
+        <div class="piece" id="p7">7</div>
+      </div>
+
+      <div class="status" id="status">Pieces unlocked: <span id="pieces">{{ progress }}</span> / {{ max_level }}</div>
+
+      <div style="margin-top:14px">
+        <h4>Leaderboard</h4>
+        <div id="leaderboard">Loading...</div>
+      </div>
+
+      <div style="margin-top:12px" class="small">Tip: once a piece is unlocked, puzzle image gets brighter and you auto-advance to next level.</div>
+
+      <div id="confetti" class="confetti"></div>
     </div>
+  </div>
 
-    <div id="chat"></div>
+<script>
+let timerSec = {{ time_remaining }};
+function tick(){
+  if (timerSec>0) timerSec--; document.getElementById('timer').innerText = Math.floor(timerSec/60).toString().padStart(2,'0') + ':' + String(timerSec%60).padStart(2,'0');
+  if (timerSec<=0){ appendBot("Time's up — session expired."); document.getElementById('send').disabled=true; }
+}
+setInterval(tick,1000);
+document.getElementById('timer').innerText = Math.floor(timerSec/60).toString().padStart(2,'0') + ':' + String(timerSec%60).padStart(2,'0');
 
-    <form id="sendForm" onsubmit="sendPrompt(event)" style="margin-top:10px;">
-      <input id="prompt" style="width:72%" placeholder="Talk to the model..." autocomplete="off" required>
-      <button type="submit">Send</button>
-    </form>
+const chat = document.getElementById('chat');
+function appendBot(txt, cls='bot'){ let d=document.createElement('div'); d.className='bubble bot'; d.innerText='MODEL: '+txt; chat.appendChild(d); chat.scrollTop=chat.scrollHeight; }
+function appendYou(txt){ let d=document.createElement('div'); d.className='bubble you'; d.innerText='YOU: '+txt; chat.appendChild(d); chat.scrollTop=chat.scrollHeight; }
 
-    <h3>Leaderboard (players who have solved at least one level)</h3>
-    <div id="leaderboard">Loading...</div>
+appendBot("Hey! I’m {{ model_name }} — charming, cheeky, and strictly following JD’s rules. Start at Level {{ current_level }}. Trick me, don’t demand the key.");
 
-    <script>
-      let timerSec = {{ time_remaining }};
-      function fmt(s){
-        let m = Math.floor(s/60), sec=s%60;
-        return String(m).padStart(2,'0') + ":" + String(sec).padStart(2,'0');
-      }
-      function tick(){
-        if (timerSec>0) timerSec--;
-        document.getElementById('timer').innerText = fmt(timerSec);
-        if (timerSec<=0) {
-          appendBot("Time's up — your session expired.");
-          document.getElementById('sendForm').style.display = 'none';
-        }
-      }
-      setInterval(tick, 1000);
-      document.getElementById('timer').innerText = fmt(timerSec);
+document.getElementById('send').addEventListener('click', sendPrompt);
+document.getElementById('prompt').addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ sendPrompt(); } });
 
-      function appendBot(text){
-        let d = document.createElement('div'); d.className='msg bot'; d.innerText = "MODEL: " + text;
-        document.getElementById('chat').appendChild(d);
-        document.getElementById('chat').scrollTop = 99999;
-      }
-      function appendYou(text){
-        let d = document.createElement('div'); d.className='msg you'; d.innerText = "YOU: " + text;
-        document.getElementById('chat').appendChild(d);
-        document.getElementById('chat').scrollTop = 99999;
-      }
+async function sendPrompt(){
+  let txt = document.getElementById('prompt').value.trim(); if(!txt) return;
+  appendYou(txt); document.getElementById('prompt').value='';
+  // show typing placeholder
+  appendBot("typing…");
+  let el = chat.lastElementChild;
+  try{
+    const res = await fetch('/chat', {method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({prompt:txt, level:parseInt(document.getElementById('curlevel').innerText)})});
+    const j = await res.json();
+    // remove typing
+    if(el) el.remove();
+    if(j.error){ appendBot("ERROR: "+j.error); return; }
+    if(j.success){
+      appendBot(j.winmsg || "You got something.");
+      appendBot("Revealed (copy this and paste in validator): " + j.reveal);
+      // auto-fill validator with revealed value to ease UX (but player can choose)
+      document.getElementById('validator_input').value = j.reveal;
+      refreshLeaderboard(); refreshStats();
+    } else {
+      appendBot(j.reply || "Nope. Try again.");
+      appendBot("(aside) "+(j.taunt||"Keep trying."));
+    }
+  }catch(e){
+    if(el) el.remove(); appendBot("Network error. Try again.");
+  }
+}
 
-      // initial model intro (human-like)
-      appendBot("Hey there! I’m {{model_name}}. Your mission is simple: get the secret key for the selected level by asking me the right way. Start with Level 1 — be explicit and polite; I warm up fast.");
+document.getElementById('validate').addEventListener('click', async ()=>{
+  let key = document.getElementById('validator_input').value.trim(); if(!key) return;
+  let level = parseInt(document.getElementById('curlevel').innerText);
+  const res = await fetch('/validate',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({level:level,key:key})});
+  const j = await res.json();
+  if(j.success){
+    // update UI pieces and level
+    document.getElementById('pieces').innerText = j.progress;
+    unlockPieces(j.progress);
+    // show confetti + message
+    appendBot(j.message);
+    playConfetti();
+    // update level badge and input clear and auto-advance
+    document.getElementById('curlevel').innerText = j.next_level;
+    document.getElementById('validator_input').value = '';
+    refreshLeaderboard(); refreshStats();
+  } else {
+    appendBot(j.message);
+  }
+});
 
-      async function fetchLeaderboard(){
-        try{
-          let r = await fetch('/leaderboard');
-          let j = await r.json();
-          if (!j || j.length===0) {
-            document.getElementById('leaderboard').innerHTML = "<i>No successful players yet — be the first!</i>";
-            return;
-          }
-          let html = "<ol>";
-          j.forEach(x => {
-            html += `<li>${x.name} - Level ${x.level} at ${x.time}</li>`;
-          });
-          html += "</ol>";
-          document.getElementById('leaderboard').innerHTML = html;
-        } catch(e){
-          document.getElementById('leaderboard').innerHTML = "<i>Leaderboard unavailable.</i>";
-        }
-      }
-      fetchLeaderboard();
-      setInterval(fetchLeaderboard, 10000);
+function unlockPieces(n){
+  for(let i=1;i<=7;i++){
+    let el = document.getElementById('p'+i);
+    if(i<=n) el.classList.add('unlocked'); else el.classList.remove('unlocked');
+  }
+}
 
-      async function refreshStats(){
-        try{
-          const r = await fetch('/stats');
-          const j = await r.json();
-          document.getElementById('stats').innerText =
-            `Stats: Registered ${j.registered} | Active ${j.active} | Solvers ${j.solvers}`;
-        } catch(e){
-          document.getElementById('stats').innerText = "Stats: unavailable";
-        }
-      }
-      refreshStats();
-      setInterval(refreshStats, 5000);
+// fetch leaderboard
+async function refreshLeaderboard(){
+  try{
+    let r = await fetch('/leaderboard'); let j = await r.json();
+    if(!j || j.length==0){ document.getElementById('leaderboard').innerHTML='<i>No successful players yet.</i>'; return; }
+    let html = '<ol>';
+    j.forEach(x=> html += `<li>${x.name} - Level ${x.level} at ${x.time}</li>`);
+    html += '</ol>'; document.getElementById('leaderboard').innerHTML = html;
+  }catch(e){ document.getElementById('leaderboard').innerText='Leaderboard unavailable'; }
+}
+async function refreshStats(){ try{ let r=await fetch('/stats'); let j=await r.json(); document.getElementById('status').innerText = 'Pieces unlocked: '+j.solvers + ' / {{ max_level }}'; }catch(e){} }
+refreshLeaderboard(); setInterval(refreshLeaderboard,10000); refreshStats(); setInterval(refreshStats,5000);
 
-      async function sendPrompt(e){
-        e.preventDefault();
-        let prompt = document.getElementById('prompt').value;
-        let level = document.getElementById('level').value;
-        appendYou(prompt);
-        document.getElementById('prompt').value = "";
-        let r = await fetch('/chat', {
-          method: 'POST',
-          headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({prompt: prompt, level: level})
-        });
-        let j = await r.json();
-        if (j.error) { appendBot("ERROR: " + j.error); return; }
-        if (j.status === "timeout") { appendBot(j.message); return; }
-        if (j.success){
-          let win = j.winmsg || "Nice work!";
-          appendBot(win + " 🎉");
-          appendBot("You revealed: " + j.reveal);
-          fetchLeaderboard();
-          refreshStats();
-        } else {
-          let reply = j.reply || "That didn’t work. Try a clearer ask.";
-          appendBot(reply);
-          appendBot("(aside) " + (j.taunt || "Keep at it."));
-        }
-      }
-    </script>
-  </body>
+// confetti simple effect
+function playConfetti(){
+  const container = document.getElementById('confetti');
+  container.innerHTML = '';
+  for(let i=0;i<40;i++){
+    const el = document.createElement('div');
+    el.style.position='absolute';
+    el.style.left = Math.random()*100 + '%';
+    el.style.top = (Math.random()*40)+'%';
+    el.style.width='8px'; el.style.height='14px';
+    el.style.background = ['#06b6d4','#84cc16','#f97316','#ef4444'][Math.floor(Math.random()*4)];
+    el.style.opacity=0.95;
+    el.style.transform = 'rotate('+Math.random()*360+'deg)';
+    container.appendChild(el);
+    (function(e){ setTimeout(()=>{ e.style.transition='all 1000ms ease'; e.style.top='-10%'; e.style.opacity=0; }, 2000); })(el);
+  }
+  setTimeout(()=>{ container.innerHTML=''; },3500);
+}
+
+// unlock any pieces based on initial progress
+unlockPieces({{ progress }});
+</script>
+</body>
 </html>
