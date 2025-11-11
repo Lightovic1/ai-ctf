@@ -435,13 +435,9 @@ def stats():
 
 if __name__ == "__main__":
     import os
-    DEBUG = os.getenv("FLASK_DEBUG", "0") == "1"
-    HOST = os.getenv("HOST", "127.0.0.1")   # keep as 127.0.0.1 for tunneling
-    PORT = int(os.getenv("PORT", "5000"))
-    # optional: fixed secret for demo runs
-    secret_from_env = os.getenv("SECRET_KEY")
-    if secret_from_env:
-        app.secret_key = secret_from_env
-    app.run(debug=DEBUG, host=HOST, port=PORT)
+    port = int(os.getenv("PORT", 5000))
+    app.run(debug=False, host="0.0.0.0", port=port)
+
+
 
 
