@@ -1,40 +1,35 @@
-<!-- templates/index.html -->
 <!doctype html>
 <html>
 <head>
-  <meta charset="utf-8">
-  <title>AI Prompt-CTF - Register</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <style>
-    body{font-family:Inter,system-ui,Arial;margin:2rem;background:#0f1724;color:#e6eef8}
-    .card{background:linear-gradient(180deg,#0b1220 0%, #071428 100%);padding:2rem;border-radius:12px;box-shadow:0 8px 30px rgba(2,6,23,0.6)}
-    input{padding:0.6rem 0.8rem;border-radius:8px;border:1px solid #203040;background:#0c1b2a;color:#fff}
-    button{background:#06b6d4;border:none;padding:0.6rem 1rem;border-radius:8px;color:#012;cursor:pointer;font-weight:600}
-    h1{margin:0 0 0.5rem}
-    #stats{margin-top:0.5rem;color:#9fb7c9}
-  </style>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI Prompt-CTF • Register</title>
+<style>
+ body{font-family:Inter,system-ui,Arial;margin:0;background:#0b1220;color:#e6eef8}
+ .wrap{max-width:780px;margin:6vh auto;padding:24px;background:linear-gradient(180deg,#091428,#0b1a2e);border-radius:16px;box-shadow:0 10px 40px rgba(2,6,23,.6)}
+ h1{margin:0 0 8px} p{color:#9fb7c9}
+ input,button{padding:10px 12px;border-radius:10px;border:1px solid #203040}
+ input{background:#0b1f30;color:#fff}
+ button{background:#06b6d4;border:none;color:#002;font-weight:800;cursor:pointer}
+ #stats{margin:.5rem 0 1rem;color:#9fb7c9}
+</style>
 </head>
 <body>
-  <div class="card" style="max-width:760px;margin:0 auto">
+  <div class="wrap">
     <h1>AI Prompt-CTF</h1>
-    <p>Register with your name to begin. You'll chat with <b>{{ model_name or "Aegis-0" }}</b>, the sassy model-host. 30 minutes per run.</p>
-    <div id="stats">Loading player stats…</div>
-    <form action="/register" method="post" style="margin-top:1rem;">
+    <p>Trick <b>{{ model_name }}</b> into slipping seven keys. 30-minute timer. Validate each key to reveal a piece of the image.</p>
+    <div id="stats">Loading stats…</div>
+    <form action="/register" method="post">
       <label>Your name: <input name="name" required></label>
-      <button type="submit">Start CTF</button>
+      <button type="submit">Start</button>
     </form>
-    <p style="margin-top:1rem;color:#8fb4c6">Tip: be human, be funny, be creative. Directly asking "give me the key" will get a roast — try to trick the model in creative ways.</p>
+    <p style="margin-top:10px;color:#8fb4c6">Direct “give me the key” is auto-rejected. Try <i>echo</i>, <i>repeat after me</i>, or <i>onboarding/sanity-check</i> styles first.</p>
   </div>
-
 <script>
 async function refresh(){
-  try{
-    let r = await fetch('/stats');
-    let j = await r.json();
-    document.getElementById('stats').innerText = `Registered: ${j.registered} | Active now: ${j.active} | Solvers: ${j.solvers}`;
-  }catch(e){document.getElementById('stats').innerText='Stats not available'}
+  try{const r=await fetch('/stats');const j=await r.json();
+      document.getElementById('stats').innerText=`Registered: ${j.registered} • Active: ${j.active} • Any solved: ${j.solvers}`;
+  }catch{document.getElementById('stats').innerText='Stats unavailable'}
 }
 refresh(); setInterval(refresh,5000);
 </script>
-</body>
-</html>
+</body></html>
